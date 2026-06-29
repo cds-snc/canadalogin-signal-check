@@ -38,8 +38,8 @@ suppressPackageStartupMessages({
 
 con <- connect_athena()
 
-# Watermark date: the period-ending Sunday.
-report_date <- as.Date("2026-06-28")
+# Watermark date: the date the report was first created.
+report_date <- as.Date("2026-06-29")
 
 # Relying-party registry: clean service names, operating department, internal
 # flag. The internal exclusion is inlined as a frozen literal list so this
@@ -120,16 +120,15 @@ adoption_curve <- tbl(con, in_schema("ibm_verify", "app_login_counts")) |>
   left_join(relying_parties, by = "application_name") |>
   arrange(service_name, days_since_launch)
 
-# MFA factor mix over the period, restricted to the three public OTP delivery
-# methods (text, email, voice). For OTP types each challenge logs a "sent"
-# issuance, so "sent" is the challenge-volume measure (cookbook:
+# MFA factor mix over the period, restricted to the two public MFA methods (SMS
+# and Voice OTP). Email OTP is not true MFA. For OTP types each challenge logs a
+# "sent" issuance, so "sent" is the challenge-volume measure (cookbook:
 # mfa-activity-by-factor). The other factors are internal-only or in testing
 # (FIDO2 security keys, push, TOTP, QR, knowledge questions) and passkeys are not
 # yet released, so they are deliberately excluded from this public-method view.
-otp_types <- c("sms_otp", "email_otp", "voice_otp")
+otp_types <- c("sms_otp", "voice_otp")
 otp_labels <- c(
   sms_otp = "SMS OTP",
-  email_otp = "Email OTP",
   voice_otp = "Voice OTP"
 )
 mfa_otp_mix <- tbl(con, in_schema("ibm_verify", "mfa_activity")) |>
@@ -198,11 +197,10 @@ app_reach <- adoption_curve |>
   )
 dt_day1 <- app_reach$day1[app_reach$service_name == "GC Digital Talent"]
 dt_latest <- app_reach$latest[app_reach$service_name == "GC Digital Talent"]
-iris_latest <- app_reach$latest[app_reach$service_name == "IRIS"]
-iris_days <- app_reach$last_day[app_reach$service_name == "IRIS"]
+iris_latest <- app_reach$latest[app_reach$service_name == "IRIS (PrairiesCan)"]
+iris_days <- app_reach$last_day[app_reach$service_name == "IRIS (PrairiesCan)"]
 
 sms_share <- mfa_otp_mix$share[mfa_otp_mix$mfa_type == "sms_otp"]
-email_share <- mfa_otp_mix$share[mfa_otp_mix$mfa_type == "email_otp"]
 voice_share <- mfa_otp_mix$share[mfa_otp_mix$mfa_type == "voice_otp"]
 
 cc_genuine <- sum(call_activity$genuine_calls)
@@ -216,8 +214,8 @@ cc_getting_started_share <- sum(cc_getting_started$topic_share)
 
 Hi and welcome to the first edition of the **CanadaLogin Signal Check**, a high level 
 non-technical report that highlights trends and insights from CanadaLogin metrics
-over the previous two weeks. Our intention is to publish this every second Monday, in 
-the weeks after CanadaLogin demo. We're still figuring out the format and cadence of 
+over the previous two weeks. Our intention is to publish this every second week, on the
+Monday after CanadaLogin sprint demo. We're still figuring out the format and cadence of 
 this report, so both may shift over the next little bit. Please bear with us, and share
 with us your comments and feedback.
 
@@ -283,8 +281,8 @@ add_cds_logo(add_watermark(headline_plot, date = report_date, edition = params$e
 The next chart lines up each relying party from its own launch day. GC Digital
 Talent is head and shoulders above the past two partners onboarded, in terms of
 user-base. On its first day it reached **`r comma(dt_day1)`** distinct users and
-**`r comma(dt_latest)`** within four days, already more than **IRIS** has reached in
-its first **`r iris_days`** days (**`r comma(iris_latest)`**). IRIS and VAC Healthshare
+**`r comma(dt_latest)`** within four days, already more than **IRIS (PrairiesCan)** has
+reached in its first **`r iris_days`** days (**`r comma(iris_latest)`**). IRIS and VAC Healthshare
 built their user bases gradually over weeks, whereas GC Digital Talent arrived all at 
 once. The change reflects the Digital Talent team's communication approach; they emailed
 their (relatively tech-savvy) userbase to let them know on launch day.
@@ -293,7 +291,7 @@ their (relatively tech-savvy) userbase to let them know on launch day.
 #| fig-alt: |
 #|   Line chart of cumulative distinct users against days since each public
 #|   service's own launch, over the first 90 days. GC Digital Talent rises almost
-#|   vertically past 2,700 users in four days, far steeper than IRIS and VAC
+#|   vertically past 2,700 users in four days, far steeper than IRIS (PrairiesCan) and VAC
 #|   Healthshare, which climb gradually over weeks.
 
 adoption_origin <- adoption_curve |>
@@ -308,7 +306,7 @@ adoption_plot <- ggplot(
   geom_point(size = 1.2) +
   scale_color_manual(values = c(
     "GC Digital Talent" = unname(colors$brand_action["orange"]),
-    "IRIS" = unname(colors$brand["blue"]),
+    "IRIS (PrairiesCan)" = unname(colors$brand["blue"]),
     "VAC Healthshare" = unname(colors$brand_base["forest"])
   )) +
   scale_y_continuous(labels = comma, limits = c(0, NA)) +
@@ -328,19 +326,17 @@ add_cds_logo(add_watermark(adoption_plot, date = report_date, edition = params$e
 ```
 
 A new userbase this size is a good moment to look at how people prove who they are.
-The only available MFA methods currently in CanadaLogin are one time passwords (OTP), 
-and the split is close between SMS OTP (**`r percent(sms_share, accuracy = 1)`** of 
-challenges) and email OTP (**`r percent(email_share, accuracy = 1)`**), with voice OTP 
-a small remainder (**`r percent(voice_share, accuracy = 1)`**). We are setting this 
-baseline now because passkeys, a faster and more phishing-resistant way to sign in, are
-releasing soon; the waffle below is the "before" picture we will measure that
-shift against.
+The two MFA methods available to the public are SMS OTP and Voice OTP. SMS dominates at
+**`r percent(sms_share, accuracy = 1)`** of challenges, with Voice OTP making up the
+remaining **`r percent(voice_share, accuracy = 1)`**. We are setting this baseline now
+because passkeys, a faster and more phishing-resistant way to sign in, are releasing
+soon; the waffle below is the "before" picture we will measure that shift against.
 
 ```{r mfa-graph}
 #| fig-alt: |
-#|   Waffle chart of 100 squares showing the mix of one-time passcode (OTP)
-#|   sign-in methods. SMS and email OTPs split the grid almost evenly at roughly
-#|   half each, with voice OTP a small slice of a few squares.
+#|   Waffle chart of 100 squares showing the mix of MFA methods available to the
+#|   public. SMS OTP fills the large majority of the grid, with Voice OTP
+#|   occupying a small slice.
 
 # Round shares to whole percentage points, then nudge the largest so the squares
 # sum to exactly 100: a clean 10-per-layer waffle where one square = 1% of these
@@ -364,7 +360,6 @@ mfa_plot <- ggplot(mfa_waffle) +
     breaks = unname(otp_labels),
     values = c(
       "SMS OTP" = unname(colors$brand["blue"]),
-      "Email OTP" = unname(colors$brand_base["forest"]),
       "Voice OTP" = unname(colors$brand_action["orange"])
     )
   ) +
@@ -377,7 +372,7 @@ mfa_plot <- ggplot(mfa_waffle) +
   labs(
     fill = NULL,
     title = "How people verify today, before passkeys arrive",
-    subtitle = "Each square represents 1% of OTP challenges over the two weeks"
+    subtitle = "Each square represents 1% of MFA challenges over the two weeks"
   )
 
 add_cds_logo(add_watermark(mfa_plot, date = report_date, edition = params$edition))
