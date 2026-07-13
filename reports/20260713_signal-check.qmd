@@ -229,7 +229,7 @@ a page. This is only our second edition, so the shape of it may still shift; if
 you missed the [first one](https://cds-snc.github.io/canadalogin-signal-check-publishing/r/de479be2/20260629_signal-check.html),
 it is worth a two-minute look. As always, let us know what is useful and what is not.
 
-**Growth is running several times faster than before Digital Talent.**
+**CanadaLogin is growing several times faster since Digital Talent went live.**
 Cumulative unique users for the year reached **`r comma(latest_ytd)`**, up
 **`r comma(net_new_period)`** across the two weeks. In the two weeks before GC
 Digital Talent came online, the user base was growing by about
